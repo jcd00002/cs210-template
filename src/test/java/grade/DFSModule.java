@@ -147,6 +147,7 @@ public abstract class DFSModule {
 			subject_table.clear();
 
 			thenTestSize(call);
+			thenTestIterator(call);
 			thenTestFingerprint(call);
 
 			passed++;
@@ -177,7 +178,10 @@ public abstract class DFSModule {
 				assertFalse(result, "Expected %s to miss for key %s".formatted(call, key));
 
 			thenTestSize(call);
-			thenTestFingerprint(call);
+			if (RNG.nextBoolean())
+				thenTestIterator(call);
+			else
+				thenTestFingerprint(call);
 
 			passed++;
 		});
@@ -205,7 +209,10 @@ public abstract class DFSModule {
 				assertFalse(result, "Expected %s to miss for key %s".formatted(call, key));
 
 			thenTestSize(call);
-			thenTestFingerprint(call);
+			if (RNG.nextBoolean())
+				thenTestIterator(call);
+			else
+				thenTestFingerprint(call);
 
 			passed++;
 		});
@@ -246,17 +253,65 @@ public abstract class DFSModule {
 		assertEquals(
 			expected,
 			actual,
-			"after %s, table size is off by %d".formatted(after, actual - expected)
+			"After %s, table size is off by %d".formatted(after, actual - expected)
+		);
+	}
+
+	protected static final void thenTestIterator(String after) {
+		var iter = subject_table.iterator();
+		assertNotNull(iter, "After %s, iterator must not be null".formatted(after));
+
+		var rows = 0;
+		while (true) {
+			var has = false;
+			try {
+				has = iter.hasNext();
+			}
+			catch (Exception e) {
+				fail("After %s, iterator's hasNext must not throw exceptions".formatted(after), e);
+			}
+
+			if (!has) break;
+
+			Object row = null;
+			try {
+				row = iter.next();
+			}
+			catch (Exception e) {
+				fail("After %s, iterator's next must not throw exceptions".formatted(after), e);
+			}
+
+			assertNotNull(
+				row,
+				"After %s, iterator's next must not return null".formatted(after)
+			);
+
+			rows++;
+		}
+
+		assertEquals(
+			exemplar_table.size(),
+			rows,
+			"After %s, iterator must traverse the correct number of rows".formatted(after)
 		);
 	}
 
 	protected static final void thenTestFingerprint(String after) {
-		var result = subject_table.hashCode();
+		var result = 0;
+		try {
+			result = subject_table.hashCode();
+		}
+		catch (NullPointerException e) {
+			fail("After %s, fingerprint must not throw null pointer exception from iterator's next".formatted(after), e);
+		}
+		catch (Exception e) {
+			fail("After %s, fingerprint must not throw exception".formatted(after), e);
+		}
 
 		assertEquals(
 			fingerprint,
 			result,
-			"after %s, fingerprint is off by %d".formatted(after, result - fingerprint)
+			"After %s, fingerprint is off by %d".formatted(after, result - fingerprint)
 		);
 	}
 
