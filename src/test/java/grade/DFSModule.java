@@ -1,5 +1,6 @@
 package grade;
 
+import static java.time.Duration.ofMillis;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.DynamicTest.dynamicTest;
 
@@ -17,6 +18,7 @@ import java.util.Random;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DynamicTest;
+import org.junit.jupiter.api.function.ThrowingSupplier;
 
 import tables.Table;
 
@@ -43,6 +45,14 @@ public abstract class DFSModule {
 	 * You may reassign this when debugging.
 	 */
 	public static final Integer RANDOM_SEED = null;
+
+	/**
+	 * The maximum time a table operation can
+	 * execute in milliseconds before timeout.
+	 * <p>
+	 * You may reassign this when debugging.
+	 */
+	public static final int TIMEOUT_MILLIS = 10;
 
 	protected static int passed;
 
@@ -76,16 +86,35 @@ public abstract class DFSModule {
 		}
 	}
 
+	protected static final Table firstTestConstructor(ThrowingSupplier<Table> supplier) {
+		Table table = null;
+		try {
+			table = assertTimeout(ofMillis(TIMEOUT_MILLIS*100),
+				supplier,
+				"Timeout in constructor (infinite loop/recursion likely)"
+			);
+		}
+		catch (AssertionError e) {
+			throw e;
+		}
+		catch (Exception e) {
+			fail("Unexpected exception in constructor", e);
+		}
+		return table;
+	}
+
 	protected static final DynamicTest testTableName(String tableName) {
 		final var call = "getTableName()";
 		logCall(tableName, call);
 
 		return dynamicTest(call, () -> {
-			assertEquals(
-				tableName,
-				subject_table.getTableName(),
-				"%s has incorrect table name in schema".formatted(tableName)
-			);
+			assertTimeout(ofMillis(TIMEOUT_MILLIS), () -> {
+				assertEquals(
+					tableName,
+					subject_table.getTableName(),
+					"%s has incorrect table name in schema".formatted(tableName)
+				);
+	        }, "Timeout in getTableName (infinite loop/recursion likely)");
 
 			passed++;
 		});
@@ -96,11 +125,13 @@ public abstract class DFSModule {
 		logCall(tableName, call);
 
 		return dynamicTest(call, () -> {
-			assertEquals(
-				columnNames,
-				subject_table.getColumnNames(),
-				"%s has incorrect column names in schema".formatted(tableName)
-			);
+			assertTimeout(ofMillis(TIMEOUT_MILLIS), () -> {
+				assertEquals(
+					columnNames,
+					subject_table.getColumnNames(),
+					"%s has incorrect column names in schema".formatted(tableName)
+				);
+	        }, "Timeout in getColumnNames (infinite loop/recursion likely)");
 
 			passed++;
 		});
@@ -111,11 +142,13 @@ public abstract class DFSModule {
 		logCall(tableName, call);
 
 		return dynamicTest(call, () -> {
-			assertEquals(
-				columnTypes,
-				subject_table.getColumnTypes(),
-				"%s has incorrect column types in schema".formatted(tableName)
-			);
+			assertTimeout(ofMillis(TIMEOUT_MILLIS), () -> {
+				assertEquals(
+					columnTypes,
+					subject_table.getColumnTypes(),
+					"%s has incorrect column types in schema".formatted(tableName)
+				);
+	        }, "Timeout in getColumnTypes (infinite loop/recursion likely)");
 
 			passed++;
 		});
@@ -126,11 +159,13 @@ public abstract class DFSModule {
 		logCall(tableName, call);
 
 		return dynamicTest(call, () -> {
-			assertEquals(
-				primaryIndex,
-				subject_table.getPrimaryIndex(),
-				"%s has incorrect primary index in schema".formatted(tableName)
-			);
+			assertTimeout(ofMillis(TIMEOUT_MILLIS), () -> {
+				assertEquals(
+					primaryIndex,
+					subject_table.getPrimaryIndex(),
+					"%s has incorrect primary index in schema".formatted(tableName)
+				);
+	        }, "Timeout in getPrimaryIndex (infinite loop/recursion likely)");
 
 			passed++;
 		});
@@ -144,7 +179,9 @@ public abstract class DFSModule {
 			exemplar_table.clear();
 			fingerprint = hashSum(tableName, columnNames, columnTypes, primaryIndex);
 
-			subject_table.clear();
+			assertTimeoutPreemptively(ofMillis(TIMEOUT_MILLIS*10), () -> {
+				subject_table.clear();
+	        }, "Timeout in clear (infinite loop/recursion likely)");
 
 			thenTestSize(call);
 			thenTestIterator(call);
@@ -171,7 +208,10 @@ public abstract class DFSModule {
 			exemplar_table.put(key, row);
 			fingerprint += hashSum(row);
 
-			var result = subject_table.put(row);
+			var result = assertTimeoutPreemptively(ofMillis(TIMEOUT_MILLIS), () -> {
+	        	return subject_table.put(row);
+	        }, "Timeout in put (infinite loop/recursion likely)");
+
 			if (hit)
 				assertTrue(result, "Expected %s to hit for key %s".formatted(call, key));
 			else
@@ -202,7 +242,10 @@ public abstract class DFSModule {
 			if (hit)
 				fingerprint -= hashSum(row);
 
-			var result = subject_table.remove(key);
+			var result = assertTimeoutPreemptively(ofMillis(TIMEOUT_MILLIS), () -> {
+	        	return subject_table.remove(key);
+	        }, "Timeout in remove (infinite loop/recursion likely)");
+
 			if (hit)
 				assertTrue(result, "Expected %s to hit for key %s".formatted(call, key));
 			else
@@ -229,7 +272,10 @@ public abstract class DFSModule {
 			gets++;
 
 			var expected = exemplar_table.get(key);
-			var actual = subject_table.get(key);
+
+			var actual = assertTimeoutPreemptively(ofMillis(TIMEOUT_MILLIS), () -> {
+	        	return subject_table.get(key);
+	        }, "Timeout in get (infinite loop/recursion likely)");
 
 			if (hit)
 				assertEquals(
@@ -248,7 +294,10 @@ public abstract class DFSModule {
 
 	protected static final void thenTestSize(String after) {
 		var expected = exemplar_table.size();
-		var actual = subject_table.size();
+
+		var actual = assertTimeout(ofMillis(TIMEOUT_MILLIS), () -> {
+        	return subject_table.size();
+        }, "After %s, timeout in size (infinite loop/recursion likely)".formatted(after));
 
 		assertEquals(
 			expected,
@@ -258,40 +307,43 @@ public abstract class DFSModule {
 	}
 
 	protected static final void thenTestIterator(String after) {
-		var iter = subject_table.iterator();
-		assertNotNull(iter, "After %s, iterator must not be null".formatted(after));
-
-		var rows = 0;
-		while (true) {
-			var has = false;
-			try {
-				has = iter.hasNext();
-			}
-			catch (Exception e) {
-				fail("After %s, iterator's hasNext must not throw exceptions".formatted(after), e);
-			}
-
-			if (!has) break;
-
-			Object row = null;
-			try {
-				row = iter.next();
-			}
-			catch (Exception e) {
-				fail("After %s, iterator's next must not throw exceptions".formatted(after), e);
-			}
-
-			assertNotNull(
-				row,
-				"After %s, iterator's next must not return null".formatted(after)
-			);
-
-			rows++;
-		}
-
+		var size = exemplar_table.size();
 		assertEquals(
-			exemplar_table.size(),
-			rows,
+			size,
+			assertTimeoutPreemptively(ofMillis(TIMEOUT_MILLIS*10), () -> {
+				var iter = subject_table.iterator();
+
+				assertNotNull(iter, "After %s, iterator must not be null".formatted(after));
+
+				var rows = 0;
+				while (true) {
+					var has = false;
+					try {
+						has = iter.hasNext();
+				    }
+					catch (Exception e) {
+						fail("After %s, iterator's hasNext must not throw exceptions".formatted(after), e);
+					}
+
+					if (!has) break;
+
+					Object row = null;
+					try {
+						row = iter.next();
+				    }
+					catch (Exception e) {
+						fail("After %s, iterator's next must not throw exceptions".formatted(after), e);
+					}
+
+					assertNotNull(
+						row,
+						"After %s, iterator's next must not return null".formatted(after)
+					);
+
+					rows++;
+				}
+				return rows;
+	        }, "After %s, timeout in iterator (infinite loop/recursion likely)".formatted(after)),
 			"After %s, iterator must traverse the correct number of rows".formatted(after)
 		);
 	}
@@ -299,7 +351,12 @@ public abstract class DFSModule {
 	protected static final void thenTestFingerprint(String after) {
 		var result = 0;
 		try {
-			result = subject_table.hashCode();
+			result = assertTimeoutPreemptively(ofMillis(TIMEOUT_MILLIS*10), () -> {
+	        	return subject_table.hashCode();
+	        }, "After %s, timeout in fingerprint (infinite loop/recursion likely)".formatted(after));
+		}
+		catch (AssertionError e) {
+			throw e;
 		}
 		catch (NullPointerException e) {
 			fail("After %s, fingerprint must not throw null pointer exception from iterator's next".formatted(after), e);
@@ -484,14 +541,25 @@ public abstract class DFSModule {
 	}
 
 	protected static final String title(String call, Object key) {
-		return "%s %s %s when \u03B1=%d/%d=%.3f".formatted(
-			call,
-			exemplar_table.containsKey(key) ? "hits" : "misses",
-			encode(key),
-			subject_table.size(),
-			subject_table.capacity(),
-			subject_table.loadFactor()
-		);
+		try {
+			return assertTimeout(ofMillis(TIMEOUT_MILLIS), () -> {
+				return "%s %s %s when \u03B1=%d/%d=%.3f".formatted(
+					call,
+					exemplar_table.containsKey(key) ? "hits" : "misses",
+					encode(key),
+					subject_table.size(),
+					subject_table.capacity(),
+					subject_table.loadFactor()
+				);
+	        });
+		}
+		catch (AssertionError e) {
+			return "%s %s %s".formatted(
+				call,
+				exemplar_table.containsKey(key) ? "hits" : "misses",
+				encode(key)
+			);
+		}
 	}
 
 	protected static final void startLog(String tableName) {

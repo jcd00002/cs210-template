@@ -34,12 +34,14 @@ public class Lab1 extends DFSModule {
 		return Stream.of(
 			dynamicTest("Constructor (4-ary)", () -> {
 				try {
-					subject_table = new SearchTable(
-						"l1_table00",
-						List.of("a", "b", "c"),
-						List.of("string", "integer", "boolean"),
-						0
-					);
+					subject_table = firstTestConstructor(() -> {
+						return new SearchTable(
+							"l1_table00",
+							List.of("a", "b", "c"),
+							List.of("string", "integer", "boolean"),
+							0
+						);
+			        });
 				}
 				catch (Exception e) {
 					fail("Unexpected exception with 4-ary constructor", e);
@@ -102,17 +104,14 @@ public class Lab1 extends DFSModule {
 	public final Stream<DynamicTest> testTable(String tableName, List<String> columnNames, List<String> columnTypes, Integer primaryIndex) {
 		startLog(tableName);
 
-		try {
-			subject_table = new SearchTable(
+		subject_table = firstTestConstructor(() -> {
+			return new SearchTable(
 				tableName,
 				columnNames,
 				columnTypes,
 				primaryIndex
 			);
-		}
-		catch (Exception e) {
-			fail("Unexpected exception in constructor", e);
-		}
+        });
 
 		logConstructor("SearchTable", tableName, columnNames, columnTypes, primaryIndex);
 
