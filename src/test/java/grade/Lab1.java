@@ -113,6 +113,7 @@ public class Lab1 extends DFSModule {
 			);
         });
 
+		logRandomSeed();
 		logConstructor("SearchTable", tableName, columnNames, columnTypes, primaryIndex);
 
 		exemplar_table = new HashMap<>();

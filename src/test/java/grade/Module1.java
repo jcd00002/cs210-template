@@ -112,6 +112,7 @@ public class Module1 extends DFSModule {
 			);
         });
 
+		logRandomSeed();
 		logConstructor("HashArrayTable", tableName, columnNames, columnTypes, primaryIndex);
 
 		exemplar_table = new HashMap<>();

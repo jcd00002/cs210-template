@@ -64,6 +64,7 @@ public abstract class DFSModule {
 	protected static int fingerprint;
 
 	protected static Random RNG;
+	protected static int actual_seed;
 	protected static PrintStream LOG_FILE;
 
 	@BeforeAll
@@ -75,15 +76,15 @@ public abstract class DFSModule {
 		fingerprint = 0;
 
 		if (RANDOM_SEED != null) {
-			RNG = new Random(RANDOM_SEED);
-			System.out.printf("Random Seed:  %d\n", RANDOM_SEED);
+			actual_seed = RANDOM_SEED;
+			RNG = new Random(actual_seed);
 		}
 		else {
 			RNG = new Random();
-			var seed = Math.abs(RNG.nextInt());
-			RNG.setSeed(seed);
-			System.out.printf("Random Seed:  %d\n", seed);
+			actual_seed = Math.abs(RNG.nextInt());
+			RNG.setSeed(actual_seed);
 		}
+		System.out.printf("Random Seed: %d\n", actual_seed);
 	}
 
 	protected static final Table firstTestConstructor(ThrowingSupplier<Table> supplier) {
@@ -574,6 +575,10 @@ public abstract class DFSModule {
 		else {
 			LOG_FILE = null;
 		}
+	}
+
+	protected static final void logRandomSeed() {
+		logLine("// Random Seed: %d".formatted(actual_seed));
 	}
 
 	protected static final void logConstructor(String className, String tableName, List<String> columnNames, List<String> columnTypes, Integer primaryIndex) {
