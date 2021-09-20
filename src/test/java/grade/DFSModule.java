@@ -185,8 +185,6 @@ public abstract class DFSModule {
 	        }, "Timeout in clear (infinite loop/recursion likely)");
 
 			thenTestSize(call);
-			thenTestIterator(call);
-			thenTestFingerprint(call);
 
 			passed++;
 		});
@@ -219,10 +217,6 @@ public abstract class DFSModule {
 				assertFalse(result, "Expected %s to miss for key %s".formatted(call, key));
 
 			thenTestSize(call);
-			if (RNG.nextBoolean())
-				thenTestIterator(call);
-			else
-				thenTestFingerprint(call);
 
 			passed++;
 		});
@@ -253,10 +247,6 @@ public abstract class DFSModule {
 				assertFalse(result, "Expected %s to miss for key %s".formatted(call, key));
 
 			thenTestSize(call);
-			if (RNG.nextBoolean())
-				thenTestIterator(call);
-			else
-				thenTestFingerprint(call);
 
 			passed++;
 		});
@@ -307,70 +297,82 @@ public abstract class DFSModule {
 		);
 	}
 
-	protected static final void thenTestIterator(String after) {
-		var size = exemplar_table.size();
-		assertEquals(
-			size,
-			assertTimeoutPreemptively(ofMillis(TIMEOUT_MILLIS*10), () -> {
-				var iter = subject_table.iterator();
+	protected static final DynamicTest testIterator() {
+		final var call = "iterator traverses";
 
-				assertNotNull(iter, "After %s, iterator must not be null".formatted(after));
+		return dynamicTest(title(call), () -> {
+			var size = exemplar_table.size();
+			assertEquals(
+				size,
+				assertTimeoutPreemptively(ofMillis(TIMEOUT_MILLIS*10), () -> {
+					var iter = subject_table.iterator();
 
-				var rows = 0;
-				while (true) {
-					var has = false;
-					try {
-						has = iter.hasNext();
-				    }
-					catch (Exception e) {
-						fail("After %s, iterator's hasNext must not throw exceptions".formatted(after), e);
+					assertNotNull(iter, "Iterator must not be null");
+
+					var rows = 0;
+					while (true) {
+						var has = false;
+						try {
+							has = iter.hasNext();
+					    }
+						catch (Exception e) {
+							fail("Iterator's hasNext must not throw exceptions", e);
+						}
+
+						if (!has) break;
+
+						Object row = null;
+						try {
+							row = iter.next();
+					    }
+						catch (Exception e) {
+							fail("Iterator's next must not throw exceptions", e);
+						}
+
+						assertNotNull(
+							row,
+							"Iterator's next must not return null"
+						);
+
+						rows++;
 					}
+					return rows;
+		        }, "Timeout in iterator (infinite loop/recursion likely)"),
+				"Iterator must traverse the correct number of rows"
+			);
 
-					if (!has) break;
-
-					Object row = null;
-					try {
-						row = iter.next();
-				    }
-					catch (Exception e) {
-						fail("After %s, iterator's next must not throw exceptions".formatted(after), e);
-					}
-
-					assertNotNull(
-						row,
-						"After %s, iterator's next must not return null".formatted(after)
-					);
-
-					rows++;
-				}
-				return rows;
-	        }, "After %s, timeout in iterator (infinite loop/recursion likely)".formatted(after)),
-			"After %s, iterator must traverse the correct number of rows".formatted(after)
-		);
+			passed++;
+		});
 	}
 
-	protected static final void thenTestFingerprint(String after) {
-		var result = 0;
-		try {
-			result = assertTimeoutPreemptively(ofMillis(TIMEOUT_MILLIS*10), () -> {
-	        	return subject_table.hashCode();
-	        }, "After %s, timeout in fingerprint (infinite loop/recursion likely)".formatted(after));
-		}
-		catch (AssertionError e) {
-			throw e;
-		}
-		catch (NullPointerException e) {
-			fail("After %s, fingerprint must not throw null pointer exception from iterator's next".formatted(after), e);
-		}
-		catch (Exception e) {
-			fail("After %s, fingerprint must not throw exception".formatted(after), e);
-		}
+	protected static final DynamicTest testFingerprint() {
+		final var call = "fingerprint matches";
 
-		assertEquals(
-			fingerprint,
-			result,
-			"After %s, fingerprint is off by %d".formatted(after, result - fingerprint)
-		);
+		return dynamicTest(title(call), () -> {
+			var result = 0;
+			try {
+				result = assertTimeoutPreemptively(ofMillis(TIMEOUT_MILLIS*10), () -> {
+		        	return subject_table.hashCode();
+		        }, "Timeout in fingerprint (infinite loop/recursion likely)");
+			}
+			catch (AssertionError e) {
+				throw e;
+			}
+			catch (NullPointerException e) {
+				fail("Fingerprint must not throw null pointer exception from iterator", e);
+			}
+			catch (Exception e) {
+				fail("Fingerprint must not throw exception", e);
+			}
+
+			assertEquals(
+				fingerprint,
+				result,
+				"Fingerprint is off by %d".formatted(result - fingerprint)
+			);
+
+			passed++;
+		});
 	}
 
 	protected static final void testForbiddenClasses(Object subject, Class<?> cls, List<String> exempt) throws IllegalArgumentException, IllegalAccessException, SecurityException {
@@ -539,6 +541,24 @@ public abstract class DFSModule {
 			return "\"" + obj + "\"";
 		else
 			return obj.toString();
+	}
+
+	protected static final String title(String call) {
+		try {
+			return assertTimeout(ofMillis(TIMEOUT_MILLIS), () -> {
+				return "%s when \u03B1=%d/%d=%.3f".formatted(
+					call,
+					subject_table.size(),
+					subject_table.capacity(),
+					subject_table.loadFactor()
+				);
+	        });
+		}
+		catch (AssertionError e) {
+			return "%s".formatted(
+				call
+			);
+		}
 	}
 
 	protected static final String title(String call, Object key) {

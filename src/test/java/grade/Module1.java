@@ -130,6 +130,12 @@ public class Module1 extends DFSModule {
 			if (i == 4 || i == calls_per_table-1)
 				return testClear(tableName, columnNames, columnTypes, primaryIndex);
 
+			if (i % 5 == 0)
+				if (RNG.nextBoolean())
+					return testIterator();
+				else
+					return testFingerprint();
+
 			var p = RNG.nextDouble();
 			if (p < 0.70)
 				return testPut(tableName, columnTypes, primaryIndex);
