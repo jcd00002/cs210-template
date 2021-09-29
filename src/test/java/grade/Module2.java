@@ -68,6 +68,7 @@ public class Module2 extends DFSModule {
 						"java.lang",
 						"java.util.ImmutableCollections",
 						"java.util.LinkedList",
+						"java.nio",
 						"sun.nio.ch",
 						"sun.nio.cs",
 						"sun.nio.fs"
